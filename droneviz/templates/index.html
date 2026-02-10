@@ -1,0 +1,193 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Drone Delivery Simulation</title>
+    <meta name="description"
+        content="Visualize drone navigation through a city grid with dynamic pathfinding and battery management">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1 class="app-title">Autonomous Drone Delivery Simulation</h1>
+            <p class="app-subtitle">Visualize drone navigation through a city grid with dynamic pathfinding and battery
+                management</p>
+            <div class="marker-badges">
+                <div class="badge badge-start">
+                    <span class="badge-label">START:</span>
+                    <span>(0, 0)</span>
+                </div>
+                <div class="badge badge-dest">
+                    <span class="badge-label">DESTINATION:</span>
+                    <span id="dest-label">(n-1, m-1)</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <main class="main-layout">
+            <!-- Left: Visualization -->
+            <div class="viz-column">
+                <div class="viz-card">
+                    <!-- Legend -->
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-swatch swatch-start"></div>
+                            <span>Start (0,0)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-swatch swatch-dest"></div>
+                            <span id="legend-dest-label">Destination</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-swatch swatch-path"></div>
+                            <span>Path</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-icon">⚡</span>
+                            <span>Recharge Station</span>
+                        </div>
+                    </div>
+
+                    <!-- Grid Canvas -->
+                    <div class="grid-wrapper">
+                        <canvas id="grid-canvas"></canvas>
+                        <div id="grid-placeholder" class="grid-placeholder">
+                            <p class="placeholder-title">No simulation loaded</p>
+                            <p class="placeholder-sub">Enter simulation data and click "Run Simulation"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Controls & Info -->
+            <div class="side-column">
+                <!-- Simulation Info -->
+                <div class="info-card">
+                    <h2 class="card-title info-title">Simulation Info</h2>
+                    <div class="info-rows">
+                        <!-- Status -->
+                        <div class="info-row">
+                            <div class="info-label">
+                                <span class="info-icon">📊</span>
+                                <span>Status</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span id="status-badge" class="status-badge status-idle">Idle</span>
+                        </div>
+
+                        <!-- Battery -->
+                        <div class="info-row">
+                            <div class="info-label">
+                                <span class="info-icon">🔋</span>
+                                <span>Battery</span>
+                            </div>
+                            <span id="battery-text" class="info-value">0 / 0</span>
+                        </div>
+                        <div class="battery-bar-track">
+                            <div id="battery-bar" class="battery-bar-fill" style="width: 0%"></div>
+                        </div>
+
+                        <!-- Total Time -->
+                        <div class="info-row">
+                            <div class="info-label">
+                                <span class="info-icon">⏱️</span>
+                                <span>Total Time</span>
+                            </div>
+                            <span id="total-time" class="info-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card">
+                    <h2 class="card-title controls-title">Controls</h2>
+                    <div class="controls-body">
+                        <label class="controls-label">Playback</label>
+                        <div class="playback-btns">
+                            <button id="play-btn" class="btn btn-play" disabled>
+                                ▶ Play
+                            </button>
+                            <button id="pause-btn" class="btn btn-pause" disabled>
+                                ⏸ Pause
+                            </button>
+                        </div>
+
+                        <button id="reset-btn" class="btn btn-reset" disabled>
+                            ↺ Reset to Start
+                        </button>
+
+                        <label class="controls-label">Animation Speed</label>
+                        <select id="speed-select" class="speed-select">
+                            <option value="0.5">0.5× (Slow)</option>
+                            <option value="1" selected>1× (Normal)</option>
+                            <option value="2">2× (Fast)</option>
+                            <option value="4">4× (Very Fast)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Input Panel -->
+                <div class="input-card">
+                    <button id="input-toggle" class="input-toggle">
+                        <h2 class="card-title input-title">Advanced Input</h2>
+                        <span id="toggle-icon" class="toggle-icon">▼</span>
+                    </button>
+                    <div id="input-body" class="input-body hidden">
+                        <div class="input-header-row">
+                            <p class="input-hint">Configure custom simulation parameters</p>
+                            <button id="help-btn" class="help-btn" title="Show format help">ℹ️</button>
+                        </div>
+
+                        <div id="help-box" class="help-box hidden">
+                            <p class="help-title">Input Format:</p>
+                            <ul class="help-list">
+                                <li>Line 1: N M B K (rows, cols, battery, recharge)</li>
+                                <li>Next N lines: M integers (building heights)</li>
+                                <li>Next line: S (number of recharge stations)</li>
+                                <li>Next S lines: r c (station positions, 0-indexed)</li>
+                            </ul>
+                        </div>
+
+                        <textarea id="solver-input" class="solver-textarea" rows="12"
+                            placeholder="Paste solver input here..."></textarea>
+
+                        <button id="run-btn" class="btn btn-run">
+                            ▶ Run Simulation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Error Display -->
+        <div id="error-bar" class="error-bar hidden">
+            <span class="error-icon-text">⚠️</span>
+            <div class="error-body">
+                <strong>Error</strong>
+                <p id="error-message"></p>
+            </div>
+            <button id="error-close" class="error-close">✕</button>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p>Running solver...</p>
+        </div>
+    </div>
+
+    <script src="{% static 'js/app.js' %}"></script>
+</body>
+
+</html>
